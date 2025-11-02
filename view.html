@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Pass Generator</title>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
+    import { getFirestore, addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
+    import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
+    import QRCode from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCCOr_w3_yZOX_gqpn11GBQxf87RdlXi6Q",
+      authDomain: "qr-generator-94762.firebaseapp.com",
+      projectId: "qr-generator-94762",
+      storageBucket: "qr-generator-94762.firebasestorage.app",
+      messagingSenderId: "338276752797",
+      appId: "1:338276752797:web:cf9ff57a4ca4b20bc06374",
+      measurementId: "G-RGQ9P6EZF2"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const form = document.getElementById('generateForm');
+    const qrImg = document.getElementById('qrImage');
+    const statusText = document.getElementById('status');
+
+    async function loginAdmin() {
+      const email = prompt('Enter admin email:');
+      const password = prompt('Enter password:');
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        alert('Logged in successfully!');
+      } catch (err) {
+        alert('Login failed: ' + err.message);
+      }
+    }
+
+    async function generatePass(e) {
+      e.preventDefault();
+      const ownerName = document.getElementById('ownerName').value.trim();
+      if (!ownerName) return alert('Enter an owner name.');
+
+      const user = auth.currentUser;
+      if (!user) return alert('Please log in first.');
+
+      try {
+        const docRef = await addDoc(collection(db, 'passes'), {
+          ownerName,
+          purchasedAt: serverTimestamp(),
+          valid: true,
+          generatedBy: user.uid
+        });
+
+        // ✅ The QR code automatically links to the hosted view page with the pass ID in URL
+        const url = `${window.location.origin}/view.html?id=${docRef.id}`;
+        const qrDataURL = await QRCode.toDataURL(url);
+
+        qrImg.src = qrDataURL;
+        qrImg.style.display = 'block';
+        statusText.innerHTML = `Pass Created!<br>ID: ${docRef.id}`;
+      } catch (err) {
+        console.error(err);
+        alert('Error generating pass: ' + err.message);
+      }
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', loginAdmin);
+    form.addEventListener('submit', generatePass);
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+    h1 {
+      color: #333;
+    }
+    form {
+      margin: 20px 0;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    input {
+      padding: 8px;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    button {
+      padding: 8px 14px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #qrImage {
+      display: none;
+      margin-top: 20px;
+      width: 200px;
+      height: 200px;
+    }
+    #status {
+      margin-top: 10px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎟️ QR Pass Generator</h1>
+  <button id="loginBtn">Login as Admin</button>
+  <form id="generateForm">
+    <input id="ownerName" type="text" placeholder="Owner Name" />
+    <button type="submit">Generate Pass</button>
+  </form>
+  <img id="qrImage" alt="Generated QR" />
+  <div id="status"></div>
+</body>
+</html>
